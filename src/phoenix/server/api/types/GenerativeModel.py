@@ -216,6 +216,33 @@ class GenerativeModel(Node, ModelInterface):
         return await info.context.data_loaders.last_used_times_by_generative_model_id.load(self.id)
 
 
+def _gql_generative_provider_key_to_semconv_provider(
+    provider_key: GenerativeProviderKey,
+) -> Optional[str]:
+    """
+    Translates a GQL GenerativeProviderKey to a semconv provider string (lowercase format).
+    This is the reverse of _semconv_provider_to_gql_generative_provider_key.
+    """
+    if provider_key == GenerativeProviderKey.OPENAI:
+        return OpenInferenceLLMProviderValues.OPENAI.value
+    if provider_key == GenerativeProviderKey.ANTHROPIC:
+        return OpenInferenceLLMProviderValues.ANTHROPIC.value
+    if provider_key == GenerativeProviderKey.AZURE_OPENAI:
+        return OpenInferenceLLMProviderValues.AZURE.value
+    if provider_key == GenerativeProviderKey.GOOGLE:
+        return OpenInferenceLLMProviderValues.GOOGLE.value
+    if provider_key == GenerativeProviderKey.DEEPSEEK:
+        return OpenInferenceLLMProviderValues.DEEPSEEK.value
+    if provider_key == GenerativeProviderKey.XAI:
+        return OpenInferenceLLMProviderValues.XAI.value
+    if provider_key == GenerativeProviderKey.AWS:
+        return OpenInferenceLLMProviderValues.AWS.value
+    if provider_key == GenerativeProviderKey.OLLAMA:
+        return None  # Ollama doesn't have a standard semconv value
+    else:
+        return None
+
+
 def _semconv_provider_to_gql_generative_provider_key(
     semconv_provider_str: str,
 ) -> Optional[GenerativeProviderKey]:

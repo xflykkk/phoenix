@@ -73,6 +73,7 @@ from phoenix.server.api.types.ExperimentRun import ExperimentRun
 from phoenix.server.api.types.Functionality import Functionality
 from phoenix.server.api.types.GenerativeModel import (
     GenerativeModel,
+    _gql_generative_provider_key_to_semconv_provider,
     _semconv_provider_to_gql_generative_provider_key,
 )
 from phoenix.server.api.types.GenerativeProvider import GenerativeProvider, GenerativeProviderKey
@@ -260,7 +261,12 @@ class Query:
 
             # Filter by provider if specified
             if input is not None and input.provider_key is not None:
-                stmt = stmt.where(models.GenerativeModel.provider == input.provider_key.value)
+                # Convert GenerativeProviderKey enum back to semconv format for database query
+                semconv_provider = _gql_generative_provider_key_to_semconv_provider(
+                    input.provider_key
+                )
+                if semconv_provider is not None:
+                    stmt = stmt.where(models.GenerativeModel.provider == semconv_provider)
 
             # Execute query
             result = await session.execute(stmt)
