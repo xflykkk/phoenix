@@ -35,6 +35,9 @@ RUN corepack use pnpm
 RUN pnpm install
 RUN pnpm run build
 
+VOLUME ["/phoenix/data"]
+
+
 # The second stage builds the backend.
 FROM python:3.11-bullseye as backend-builder
 WORKDIR /phoenix
