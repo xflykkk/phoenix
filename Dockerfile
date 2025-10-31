@@ -48,6 +48,8 @@ COPY --from=frontend-builder /phoenix/src/phoenix/server/static/ /phoenix/src/ph
 # Delete symbolic links used during development.
 RUN find src/ -xtype l -delete
 RUN pip install --target ./env ".[container, pg]"
+# Create the working directory with proper permissions for nonroot user (UID 65532)
+RUN mkdir -p /phoenix/workdir && chmod 777 /phoenix/workdir
 
 # The production image is distroless, meaning that it is a minimal image that
 # contains only the necessary dependencies to run the application. This is
@@ -64,8 +66,12 @@ RUN pip install --target ./env ".[container, pg]"
 FROM ${BASE_IMAGE}
 WORKDIR /phoenix
 COPY --from=backend-builder /phoenix/env/ ./env
+COPY --from=backend-builder /phoenix/workdir/ ./workdir
 ENV PYTHONPATH="/phoenix/env:$PYTHONPATH"
 ENV PYTHONUNBUFFERED=1
+# Set the default working directory for Phoenix data persistence
+# This should match the volume mount path (e.g., data:/phoenix/workdir)
+ENV PHOENIX_WORKING_DIR=/phoenix/workdir
 # Expose the Phoenix port.
 EXPOSE 6006
 # Expose the Phoenix gRPC port.
@@ -73,6 +79,8 @@ EXPOSE 4317
 # Expose the Prometheus port.
 EXPOSE 9090
 # Define the volume for persistent data storage
+# When deploying, mount your persistent storage to this path
+# Example: data:/phoenix/workdir
 VOLUME ["/phoenix/workdir"]
 # Run the Phoenix server. Note that the ENTRYPOINT of the base image invokes
 # Python, so no explicit invocation of Python is needed here. See
