@@ -20,16 +20,16 @@ from tests.unit.graphql import AsyncGraphQLClient
 async def custom_models(db: DbSessionFactory) -> None:
     """Create test custom models in the database."""
     async with db() as session:
-        # Create custom OpenAI models
+        # Create custom OpenAI models (using lowercase semconv format)
         openai_model_1 = models.GenerativeModel(
             name="gpt-4o-custom",
-            provider="OPENAI",
+            provider="openai",  # lowercase semconv format
             name_pattern=re.compile("gpt-4o-custom"),
             is_built_in=False,
         )
         openai_model_2 = models.GenerativeModel(
             name="gpt-4-turbo-custom",
-            provider="OPENAI",
+            provider="openai",  # lowercase semconv format
             name_pattern=re.compile("gpt-4-turbo-custom"),
             is_built_in=False,
         )
@@ -37,7 +37,7 @@ async def custom_models(db: DbSessionFactory) -> None:
         # Create custom Anthropic model
         anthropic_model = models.GenerativeModel(
             name="claude-3-5-sonnet-custom",
-            provider="ANTHROPIC",
+            provider="anthropic",  # lowercase semconv format
             name_pattern=re.compile("claude-3-5-sonnet-custom"),
             is_built_in=False,
         )
@@ -45,7 +45,7 @@ async def custom_models(db: DbSessionFactory) -> None:
         # Create a built-in model (should NOT appear in results)
         builtin_model = models.GenerativeModel(
             name="gpt-4-builtin",
-            provider="OPENAI",
+            provider="openai",  # lowercase semconv format
             name_pattern=re.compile("gpt-4"),
             is_built_in=True,
         )
@@ -53,7 +53,7 @@ async def custom_models(db: DbSessionFactory) -> None:
         # Create a deleted model (should NOT appear in results)
         deleted_model = models.GenerativeModel(
             name="gpt-4-deleted",
-            provider="OPENAI",
+            provider="openai",  # lowercase semconv format
             name_pattern=re.compile("gpt-4-deleted"),
             is_built_in=False,
             deleted_at=datetime.now(timezone.utc),

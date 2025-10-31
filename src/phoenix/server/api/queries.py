@@ -71,7 +71,10 @@ from phoenix.server.api.types.ExperimentRepeatedRunGroup import (
 )
 from phoenix.server.api.types.ExperimentRun import ExperimentRun
 from phoenix.server.api.types.Functionality import Functionality
-from phoenix.server.api.types.GenerativeModel import GenerativeModel
+from phoenix.server.api.types.GenerativeModel import (
+    GenerativeModel,
+    _semconv_provider_to_gql_generative_provider_key,
+)
 from phoenix.server.api.types.GenerativeProvider import GenerativeProvider, GenerativeProviderKey
 from phoenix.server.api.types.InferenceModel import InferenceModel
 from phoenix.server.api.types.InferencesRole import AncillaryInferencesRole, InferencesRole
@@ -266,15 +269,14 @@ class Query:
             for name, provider in result:
                 if not provider:
                     continue
-                try:
-                    # Convert provider string to GenerativeProviderKey enum
-                    provider_key = GenerativeProviderKey(provider)
+
+                # Convert semconv provider string to GenerativeProviderKey enum
+                provider_key = _semconv_provider_to_gql_generative_provider_key(provider)
+
+                if provider_key is not None:
                     all_models.append(
                         PlaygroundModel(name_value=name, provider_key_value=provider_key)
                     )
-                except (ValueError, KeyError):
-                    # Skip if provider is not a valid GenerativeProviderKey
-                    continue
 
         return all_models
 
