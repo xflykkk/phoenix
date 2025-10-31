@@ -213,22 +213,69 @@ class Query:
         return connection_from_list(data=data, args=args)
 
     @strawberry.field
-    async def playground_models(self, input: Optional[ModelsInput] = None) -> list[PlaygroundModel]:
-        if input is not None and input.provider_key is not None:
-            supported_model_names = PLAYGROUND_CLIENT_REGISTRY.list_models(input.provider_key)
-            supported_models = [
-                PlaygroundModel(name_value=model_name, provider_key_value=input.provider_key)
-                for model_name in supported_model_names
-            ]
-            return supported_models
+    async def playground_models(
+        self, info: Info[Context, None], input: Optional[ModelsInput] = None
+    ) -> list[PlaygroundModel]:
+        """
+        Returns custom models configured in the database.
+        Built-in models from PLAYGROUND_CLIENT_REGISTRY are commented out.
+        """
+        # ==============================================================================
+        # ORIGINAL CODE (COMMENTED OUT) - Built-in models from registry
+        # ==============================================================================
+        # if input is not None and input.provider_key is not None:
+        #     supported_model_names = PLAYGROUND_CLIENT_REGISTRY.list_models(input.provider_key)
+        #     supported_models = [
+        #         PlaygroundModel(name_value=model_name, provider_key_value=input.provider_key)
+        #         for model_name in supported_model_names
+        #     ]
+        #     return supported_models
+        #
+        # registered_models = PLAYGROUND_CLIENT_REGISTRY.list_all_models()
+        # all_models: list[PlaygroundModel] = []
+        # for provider_key, model_name in registered_models:
+        #     if model_name is not None and provider_key is not None:
+        #         all_models.append(
+        #             PlaygroundModel(name_value=model_name, provider_key_value=provider_key)
+        #         )
+        # return all_models
+        # ==============================================================================
 
-        registered_models = PLAYGROUND_CLIENT_REGISTRY.list_all_models()
+        # ==============================================================================
+        # NEW CODE - Custom models from database only
+        # ==============================================================================
         all_models: list[PlaygroundModel] = []
-        for provider_key, model_name in registered_models:
-            if model_name is not None and provider_key is not None:
-                all_models.append(
-                    PlaygroundModel(name_value=model_name, provider_key_value=provider_key)
-                )
+
+        async with info.context.db() as session:
+            # Query only custom models (not built-in)
+            stmt = select(
+                models.GenerativeModel.name, models.GenerativeModel.provider
+            ).where(
+                models.GenerativeModel.deleted_at.is_(None),
+                models.GenerativeModel.is_built_in.is_(False),
+            )
+
+            # Filter by provider if specified
+            if input is not None and input.provider_key is not None:
+                stmt = stmt.where(models.GenerativeModel.provider == input.provider_key.value)
+
+            # Execute query
+            result = await session.execute(stmt)
+
+            # Convert to PlaygroundModel
+            for name, provider in result:
+                if not provider:
+                    continue
+                try:
+                    # Convert provider string to GenerativeProviderKey enum
+                    provider_key = GenerativeProviderKey(provider)
+                    all_models.append(
+                        PlaygroundModel(name_value=name, provider_key_value=provider_key)
+                    )
+                except (ValueError, KeyError):
+                    # Skip if provider is not a valid GenerativeProviderKey
+                    continue
+
         return all_models
 
     @strawberry.field
