@@ -35,8 +35,6 @@ RUN corepack use pnpm
 RUN pnpm install
 RUN pnpm run build
 
-VOLUME ["/phoenix/data"]
-
 
 # The second stage builds the backend.
 FROM python:3.11-bullseye as backend-builder
@@ -74,6 +72,8 @@ EXPOSE 6006
 EXPOSE 4317
 # Expose the Prometheus port.
 EXPOSE 9090
+# Define the volume for persistent data storage
+VOLUME ["/phoenix/workdir"]
 # Run the Phoenix server. Note that the ENTRYPOINT of the base image invokes
 # Python, so no explicit invocation of Python is needed here. See
 # https://github.com/GoogleContainerTools/distroless/blob/16dc4a6a33838006fe956e4c19f049ece9c18a8d/python3/BUILD#L55
