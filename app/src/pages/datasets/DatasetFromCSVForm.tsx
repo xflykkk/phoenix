@@ -2,8 +2,6 @@ import { useCallback, useMemo, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { css } from "@emotion/react";
 
-import { Field, FieldProps } from "@arizeai/components";
-
 import {
   Button,
   FieldError,
@@ -30,6 +28,7 @@ type CreateDatasetFromCSVParams = {
   input_keys: string[];
   output_keys: string[];
   metadata_keys: string[];
+  split_keys: string[];
   name: string;
   description: string;
   metadata: Record<string, unknown>;
@@ -63,6 +62,7 @@ export function DatasetFromCSVForm(props: CreateDatasetFromCSVFormProps) {
       input_keys: [],
       output_keys: [],
       metadata_keys: [],
+      split_keys: [],
       description: "",
       metadata: {},
     },
@@ -83,6 +83,9 @@ export function DatasetFromCSVForm(props: CreateDatasetFromCSVFormProps) {
       });
       data.metadata_keys.forEach((key) => {
         formData.append("metadata_keys[]", key);
+      });
+      data.split_keys.forEach((key) => {
+        formData.append("split_keys[]", key);
       });
       return fetch(prependBasename("/v1/datasets/upload?sync=true"), {
         method: "POST",
@@ -141,6 +144,7 @@ export function DatasetFromCSVForm(props: CreateDatasetFromCSVFormProps) {
                     resetField("input_keys");
                     resetField("output_keys");
                     resetField("metadata_keys");
+                    resetField("split_keys");
                     const file = event.target.files?.[0];
                     if (file) {
                       const name = file.name.split(".")[0];
@@ -221,13 +225,9 @@ export function DatasetFromCSVForm(props: CreateDatasetFromCSVFormProps) {
           rules={{
             required: "field is required",
           }}
-          render={({
-            field: { value, onChange },
-            fieldState: { invalid, error },
-          }) => (
+          render={({ field: { value, onChange }, fieldState: { error } }) => (
             <ColumnMultiSelector
               label="input keys"
-              validationState={invalid ? "invalid" : "valid"}
               description={`the columns to use as input`}
               columns={columns}
               selectedColumns={value}
@@ -239,13 +239,9 @@ export function DatasetFromCSVForm(props: CreateDatasetFromCSVFormProps) {
         <Controller
           name="output_keys"
           control={control}
-          render={({
-            field: { value, onChange },
-            fieldState: { invalid, error },
-          }) => (
+          render={({ field: { value, onChange }, fieldState: { error } }) => (
             <ColumnMultiSelector
               label="output keys"
-              validationState={invalid ? "invalid" : "valid"}
               description={`the columns to use as output`}
               columns={columns}
               selectedColumns={value}
@@ -257,14 +253,24 @@ export function DatasetFromCSVForm(props: CreateDatasetFromCSVFormProps) {
         <Controller
           name="metadata_keys"
           control={control}
-          render={({
-            field: { value, onChange },
-            fieldState: { invalid, error },
-          }) => (
+          render={({ field: { value, onChange }, fieldState: { error } }) => (
             <ColumnMultiSelector
               label="metadata keys"
-              validationState={invalid ? "invalid" : "valid"}
               description={`the columns to use as metadata`}
+              columns={columns}
+              selectedColumns={value}
+              onChange={onChange}
+              errorMessage={error?.message}
+            />
+          )}
+        />
+        <Controller
+          name="split_keys"
+          control={control}
+          render={({ field: { value, onChange }, fieldState: { error } }) => (
+            <ColumnMultiSelector
+              label="split keys"
+              description={`the columns to use for automatically assigning examples to splits`}
               columns={columns}
               selectedColumns={value}
               onChange={onChange}
@@ -295,23 +301,19 @@ export function DatasetFromCSVForm(props: CreateDatasetFromCSVFormProps) {
   );
 }
 
-function ColumnMultiSelector(
-  props: Pick<
-    FieldProps,
-    "label" | "validationState" | "description" | "errorMessage"
-  > & {
-    label: string;
-    columns: string[];
-    selectedColumns: string[];
-    onChange: (selectedColumns: string[]) => void;
-  }
-) {
+function ColumnMultiSelector(props: {
+  description?: string;
+  errorMessage?: string;
+  label: string;
+  columns: string[];
+  selectedColumns: string[];
+  onChange: (selectedColumns: string[]) => void;
+}) {
   const {
     columns,
     selectedColumns,
     onChange,
     label,
-    validationState,
     description,
     errorMessage,
   } = props;
@@ -321,13 +323,8 @@ function ColumnMultiSelector(
   }, [columns]);
 
   return (
-    <Field
-      label={label}
-      isDisabled={noColumns}
-      validationState={validationState}
-      description={description}
-      errorMessage={errorMessage}
-    >
+    <div css={fieldBaseCSS}>
+      <Label>{label}</Label>
       <Select
         isDisabled={noColumns}
         placeholder="Select columns"
@@ -353,6 +350,14 @@ function ColumnMultiSelector(
           </ListBox>
         </Popover>
       </Select>
-    </Field>
+      {errorMessage ? (
+        <Text slot="errorMessage" color="danger">
+          {errorMessage}
+        </Text>
+      ) : null}
+      {description && !errorMessage ? (
+        <Text slot="description">{description}</Text>
+      ) : null}
+    </div>
   );
 }
