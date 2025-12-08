@@ -239,9 +239,16 @@ class OptimizerMutationMixin:
 
             judge_fn = _judge_fn
 
+        # Normalize prompt roles to lowercase for opik_optimizer
+        normalized_messages = []
+        for m in input.prompt_messages:
+            if isinstance(m, dict):
+                m = {**m, "role": str(m.get("role", "")).lower()}
+            normalized_messages.append(m)
+
         request = OptimizationRequest(
             algorithm=algorithm,  # type: ignore[arg-type]
-            prompt_messages=input.prompt_messages,
+            prompt_messages=normalized_messages,
             tools=input.tools or [],
             model=input.model.name,
             model_kwargs={},

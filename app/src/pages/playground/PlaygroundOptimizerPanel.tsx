@@ -379,7 +379,7 @@ export function PlaygroundOptimizerPanel() {
 
           {/* 指标专属配置 */}
           {metric === "contains" ? (
-            <View paddingTop="size-50" width="100%">
+            <Flex direction="column" gap="size-50" paddingTop="size-50" width="100%">
               <TextField
                 label="关键词（逗号分隔）"
                 placeholder="例如：correct,pass,success"
@@ -387,7 +387,7 @@ export function PlaygroundOptimizerPanel() {
                 onChange={setContainsKeywords}
                 width="100%"
               />
-            </View>
+            </Flex>
           ) : null}
           {metric === "llm_judge" ? (
             <Flex direction="column" gap="size-100" width="100%">
