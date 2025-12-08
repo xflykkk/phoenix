@@ -65,6 +65,7 @@ dependencies = [
   "litellm>=1.0.3,<1.57.5",
   "rich",
   "opik",
+  "opik-optimizer",
   "email-validator",
   "python-dateutil",
   "prometheus_client",

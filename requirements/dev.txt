@@ -15,3 +15,4 @@ pyrate-limiter
 litellm>=1.0.3,<1.57.5
 rich
 opik
+opik-optimizer
