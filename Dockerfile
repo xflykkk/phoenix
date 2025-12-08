@@ -45,9 +45,12 @@ COPY ./pyproject.toml /phoenix/
 COPY ./LICENSE /phoenix/
 COPY ./IP_NOTICE /phoenix/
 COPY ./README.md /phoenix/
+COPY ./opik_optimizer /phoenix/opik_optimizer
 COPY --from=frontend-builder /phoenix/src/phoenix/server/static/ /phoenix/src/phoenix/server/static/
 # Delete symbolic links used during development.
 RUN find src/ -xtype l -delete
+# Install local opik_optimizer into vendored env first so main install can reuse it.
+RUN pip install --target ./env ./opik_optimizer
 RUN pip install --target ./env ".[container, pg]"
 # Create the working directory with proper permissions for nonroot user (UID 65532)
 RUN mkdir -p /phoenix/workdir && chmod 777 /phoenix/workdir
