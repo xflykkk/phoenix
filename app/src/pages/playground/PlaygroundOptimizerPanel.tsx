@@ -340,30 +340,7 @@ export function PlaygroundOptimizerPanel() {
             <Radio value="contains">Contains</Radio>
             <Radio value="llm_judge">LLM Judge</Radio>
           </RadioGroup>
-          {metric === "contains" ? (
-            <View paddingTop="size-50">
-              <TextField
-                label="关键词（逗号分隔）"
-                placeholder="例如：correct,pass,success"
-                value={containsKeywords}
-                onChange={setContainsKeywords}
-              />
-            </View>
-          ) : null}
-          {metric === "llm_judge" ? (
-            <Flex direction="column" gap="size-100">
-              <TextArea
-                label="LLM 裁判提示词"
-                value={judgePrompt}
-                onChange={setJudgePrompt}
-              />
-              <TextField
-                label="裁判模型（可选，默认沿用上方模型）"
-                value={judgeModel}
-                onChange={setJudgeModel}
-              />
-            </Flex>
-          ) : null}
+          {/* 算法专属配置 */}
           {algorithm === "fewshot" ? (
             <View paddingTop="size-50">
               <Flex direction="row" gap="size-100" wrap>
@@ -389,12 +366,43 @@ export function PlaygroundOptimizerPanel() {
             </View>
           ) : null}
           {algorithm === "parameter" ? (
-            <TextArea
-              label="参数空间 JSON（参见 ParameterSearchSpace schema）"
-              value={parameterSpace}
-              onChange={setParameterSpace}
-              placeholder='{"temperature": {"type": "float", "min": 0, "max": 1}}'
-            />
+            <View paddingTop="size-50" width="100%">
+              <TextArea
+                label="参数空间 JSON（参见 ParameterSearchSpace schema）"
+                value={parameterSpace}
+                onChange={setParameterSpace}
+                placeholder='{"temperature": {"type": "float", "min": 0, "max": 1}}'
+                width="100%"
+              />
+            </View>
+          ) : null}
+
+          {/* 指标专属配置 */}
+          {metric === "contains" ? (
+            <View paddingTop="size-50" width="100%">
+              <TextField
+                label="关键词（逗号分隔）"
+                placeholder="例如：correct,pass,success"
+                value={containsKeywords}
+                onChange={setContainsKeywords}
+                width="100%"
+              />
+            </View>
+          ) : null}
+          {metric === "llm_judge" ? (
+            <Flex direction="column" gap="size-100" width="100%">
+              <TextArea
+                label="LLM 裁判提示词"
+                value={judgePrompt}
+                onChange={setJudgePrompt}
+                width="100%"
+              />
+              <TextField
+                label="裁判模型（可选，默认沿用上方模型）"
+                value={judgeModel}
+                onChange={setJudgeModel}
+              />
+            </Flex>
           ) : null}
           <TextField
             label="最大试验数/迭代（可选）"
