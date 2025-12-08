@@ -50,12 +50,7 @@ COPY --from=frontend-builder /phoenix/src/phoenix/server/static/ /phoenix/src/ph
 # Delete symbolic links used during development.
 RUN find src/ -xtype l -delete
 # Install local opik_optimizer into vendored env first so main install can reuse it.
-# If the directory is not present in the build context (e.g., not vendored), skip.
-RUN if [ -f opik_optimizer/setup.py ] || [ -f opik_optimizer/pyproject.toml ]; then \
-      cd opik_optimizer && pip install --target ../env . ; \
-    else \
-      echo "opik_optimizer source not found; skipping local install"; \
-    fi
+RUN cd opik_optimizer && pip install --target ../env .
 RUN pip install --target ./env ".[container, pg]"
 # Create the working directory with proper permissions for nonroot user (UID 65532)
 RUN mkdir -p /phoenix/workdir && chmod 777 /phoenix/workdir
