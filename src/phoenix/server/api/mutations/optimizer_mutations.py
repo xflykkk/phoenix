@@ -180,10 +180,16 @@ class OptimizerMutationMixin:
                     return
             credential_inputs.append(GenerativeCredentialInput(env_var_name=name, value=value))
 
+        model_name_lower = (input.model.name or "").lower()
         if input.model.provider_key.name == "OPENAI":
             _insert_or_replace("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
             if not getattr(input.model, "base_url", None) and os.getenv("OPENAI_BASE_URL"):
                 input.model.base_url = os.getenv("OPENAI_BASE_URL")
+            # If用户把 xAI/grok 模型放在 OPENAI provider 下，也尝试读取 xAI 默认环境变量
+            if "grok" in model_name_lower:
+                _insert_or_replace("XAI_API_KEY", os.getenv("XAI_API_KEY"))
+                if not getattr(input.model, "base_url", None) and os.getenv("XAI_BASE_URL"):
+                    input.model.base_url = os.getenv("XAI_BASE_URL")
 
         credentials = [
             PlaygroundClientCredential(env_var_name=cred.env_var_name, value=cred.value)
