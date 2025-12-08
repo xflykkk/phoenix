@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, Optional
 
 import asyncio
-import os
 import litellm
 import strawberry
 from strawberry.scalars import JSON as JSONScalarType
@@ -169,32 +168,10 @@ class OptimizerMutationMixin:
         if llm_client_class is None:
             raise BadRequest(f"Unknown LLM provider: '{input.model.provider_key.value}'")
 
-        # Fill missing credentials with environment defaults when appropriate.
-        credential_inputs: list[GenerativeCredentialInput] = list(input.credentials or [])
-        def _insert_or_replace(name: str, value: str | None) -> None:
-            if not value:
-                return
-            for cred in credential_inputs:
-                if cred.env_var_name == name:
-                    cred.value = value
-                    return
-            credential_inputs.append(GenerativeCredentialInput(env_var_name=name, value=value))
-
-        model_name_lower = (input.model.name or "").lower()
-        if input.model.provider_key.name == "OPENAI":
-            _insert_or_replace("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
-            if not getattr(input.model, "base_url", None) and os.getenv("OPENAI_BASE_URL"):
-                input.model.base_url = os.getenv("OPENAI_BASE_URL")
-            # If用户把 xAI/grok 模型放在 OPENAI provider 下，也尝试读取 xAI 默认环境变量
-            if "grok" in model_name_lower:
-                _insert_or_replace("XAI_API_KEY", os.getenv("XAI_API_KEY"))
-                if not getattr(input.model, "base_url", None) and os.getenv("XAI_BASE_URL"):
-                    input.model.base_url = os.getenv("XAI_BASE_URL")
-
         credentials = [
             PlaygroundClientCredential(env_var_name=cred.env_var_name, value=cred.value)
-            for cred in credential_inputs
-            if cred.value
+            for cred in (input.credentials or [])
+            if cred.value  # keep non-empty values; empty allows env fallback in clients
         ]
         try:
             llm_client = llm_client_class(model=input.model, credentials=credentials)
