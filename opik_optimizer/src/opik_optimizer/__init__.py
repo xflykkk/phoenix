@@ -29,7 +29,10 @@ from .algorithms.parameter_optimizer import (
 # https://github.com/BerriAI/litellm/issues/16813
 os.environ.setdefault("LITELLM_LOCAL_MODEL_COST_MAP", "True")
 
-__version__ = importlib.metadata.version("opik_optimizer")
+try:
+    __version__ = importlib.metadata.version("opik_optimizer")
+except importlib.metadata.PackageNotFoundError:
+    __version__ = "local"
 
 # Using WARNING as a sensible default to avoid flooding users with INFO/DEBUG
 setup_logging(level=logging.WARNING)

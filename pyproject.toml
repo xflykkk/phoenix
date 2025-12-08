@@ -59,6 +59,13 @@ dependencies = [
   "pydantic>=2.1.0", # exclude 2.0.* since it does not support the `json_encoders` configuration setting
   "authlib",
   "arize-phoenix-client>=1.20.0",
+  "deap",
+  "gepa",
+  "optuna",
+  "pyrate-limiter",
+  "litellm>=1.0.3,<1.57.5",
+  "rich",
+  "opik",
   "email-validator",
   "python-dateutil",
   "prometheus_client",

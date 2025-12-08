@@ -13,6 +13,7 @@ from starlette.authentication import UnauthenticatedUser
 from strawberry import ID, UNSET
 from strawberry.relay import Connection, GlobalID, Node
 from strawberry.types import Info
+from strawberry.scalars import JSON as JSONScalarType
 from typing_extensions import Annotated, TypeAlias, assert_never
 
 from phoenix.config import (
@@ -110,6 +111,16 @@ from phoenix.server.api.types.User import User
 from phoenix.server.api.types.UserApiKey import UserApiKey
 from phoenix.server.api.types.UserRole import UserRole
 from phoenix.server.api.types.ValidationResult import ValidationResult
+from phoenix.optimizer.optimization_service import service as optimizer_service
+
+
+@strawberry.type
+class PlaygroundOptimizationJob:
+    id: ID
+    status: str
+    best_score: Optional[float] = None
+    best_prompt: Optional[JSONScalarType] = None
+    error: Optional[str] = None
 
 initialize_playground_clients()
 
@@ -1433,6 +1444,24 @@ class Query:
         if session_row:
             return ProjectSession(id=session_row.id, db_record=session_row)
         return None
+
+    @strawberry.field
+    def playground_optimization_job(self, id: ID) -> Optional[PlaygroundOptimizationJob]:
+        job = optimizer_service.get_job(str(id))
+        if not job:
+            return None
+        best_prompt = None
+        best_score = None
+        if job.result:
+            best_prompt = job.result.best_prompt_messages
+            best_score = job.result.best_score
+        return PlaygroundOptimizationJob(
+            id=job.id,
+            status=job.status,
+            best_score=best_score,
+            best_prompt=best_prompt,
+            error=job.error,
+        )
 
 
 def _consolidate_sqlite_db_table_stats(

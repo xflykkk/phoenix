@@ -153,8 +153,9 @@ class BaseOptimizer(ABC):
         if not isinstance(prompt, chat_prompt.ChatPrompt):
             raise ValueError("Prompt must be a ChatPrompt object")
 
-        if not isinstance(dataset, Dataset):
-            raise ValueError("Dataset must be a Dataset object")
+        # Accept any object that exposes get_items(); allows Phoenix adapter datasets.
+        if not hasattr(dataset, "get_items"):
+            raise ValueError("Dataset must expose get_items()")
 
         if not callable(metric):
             raise ValueError(

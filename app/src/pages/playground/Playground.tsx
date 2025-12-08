@@ -37,6 +37,7 @@ import { PlaygroundCredentialsDropdown } from "./PlaygroundCredentialsDropdown";
 import { PlaygroundDatasetSection } from "./PlaygroundDatasetSection";
 import { PlaygroundDatasetSelect } from "./PlaygroundDatasetSelect";
 import { PlaygroundInput } from "./PlaygroundInput";
+import { PlaygroundOptimizerPanel } from "./PlaygroundOptimizerPanel";
 import { PlaygroundOutput } from "./PlaygroundOutput";
 import { PlaygroundRunButton } from "./PlaygroundRunButton";
 import { PlaygroundTemplate } from "./PlaygroundTemplate";
@@ -292,10 +293,13 @@ function PlaygroundContent() {
         <Panel>
           {isDatasetMode ? (
             <Suspense fallback={<Loading />}>
-              <PlaygroundDatasetSection
-                datasetId={datasetId}
-                splitIds={splitIds}
-              />
+              <div>
+                <PlaygroundDatasetSection
+                  datasetId={datasetId}
+                  splitIds={splitIds}
+                />
+                <PlaygroundOptimizerPanel />
+              </div>
             </Suspense>
           ) : (
             <div css={playgroundInputOutputPanelContentCSS}>
