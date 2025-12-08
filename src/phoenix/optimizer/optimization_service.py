@@ -20,6 +20,10 @@ class OptimizationJob:
     result: OptimizationResult | None = None
     error: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
+    cancel_event: threading.Event | None = None
+    thread: threading.Thread | None = None
+    cancel_event: threading.Event | None = None
+    thread: threading.Thread | None = None
 
 
 class OptimizationService:
@@ -41,24 +45,38 @@ class OptimizationService:
         on_progress: Callable[[OptimizationJob], None] | None = None,
     ) -> OptimizationJob:
         job_id = str(uuid.uuid4())
-        job = OptimizationJob(id=job_id, status="pending", request=request)
+        cancel_event = threading.Event()
+        request.cancel_event = cancel_event
+        job = OptimizationJob(
+            id=job_id,
+            status="pending",
+            request=request,
+            cancel_event=cancel_event,
+        )
         with self._lock:
             self._jobs[job_id] = job
 
         def _run() -> None:
             self._update_status(job_id, "running")
             try:
+                if cancel_event.is_set():
+                    self._update_status(job_id, "canceled")
+                    return
                 result = run_optimization_job(request)
                 self._update_result(job_id, result)
                 self._update_status(job_id, "completed")
             except Exception as exc:  # pragma: no cover - defensive
-                self._update_error(job_id, str(exc))
-                self._update_status(job_id, "failed")
+                if cancel_event.is_set():
+                    self._update_status(job_id, "canceled")
+                else:
+                    self._update_error(job_id, str(exc))
+                    self._update_status(job_id, "failed")
             if on_progress:
                 on_progress(self._jobs[job_id])
 
         if run_async:
             thread = threading.Thread(target=_run, daemon=True)
+            job.thread = thread
             thread.start()
         else:
             _run()
@@ -68,6 +86,17 @@ class OptimizationService:
     def get_job(self, job_id: str) -> Optional[OptimizationJob]:
         with self._lock:
             return self._jobs.get(job_id)
+
+    def cancel_job(self, job_id: str) -> bool:
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None:
+                return False
+            if job.cancel_event:
+                job.cancel_event.set()
+            if job.status not in {"completed", "failed", "canceled"}:
+                job.status = "canceled"
+            return True
 
     def _update_status(self, job_id: str, status: JobStatus) -> None:
         with self._lock:

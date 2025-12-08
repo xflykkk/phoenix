@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import threading
 from typing import Any, Callable, Literal
 
 
@@ -73,6 +74,9 @@ class OptimizationRequest:
     n_samples: int | None = None
     llm_judge_fn: Callable[[dict[str, Any], Any], float] | None = None
     parameter_space: Any | None = None
+    invocation_parameters: dict[str, Any] | None = None
+    llm_client: Any | None = None
+    cancel_event: threading.Event | None = None
     # Few-shot specific
     min_examples: int | None = None
     max_examples_fs: int | None = None

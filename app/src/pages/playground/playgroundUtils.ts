@@ -1199,6 +1199,16 @@ const getBaseChatCompletionInput = ({
   } satisfies Partial<ChatCompletionInput>;
 };
 
+export const getBaseChatCompletionInputForInstance = ({
+  playgroundStore,
+  instanceId,
+  credentials,
+}: {
+  playgroundStore: PlaygroundStore;
+  instanceId: number;
+  credentials: CredentialsState;
+}) => getBaseChatCompletionInput({ playgroundStore, instanceId, credentials });
+
 /**
  * Denormalize a playground instance with the actual messages
  *

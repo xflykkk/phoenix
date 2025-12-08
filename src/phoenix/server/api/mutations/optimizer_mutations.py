@@ -2,23 +2,33 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
+import asyncio
+import litellm
 import strawberry
 from strawberry.scalars import JSON as JSONScalarType
 from strawberry.relay import GlobalID
 from strawberry.types import Info
 
-from phoenix.server.api.auth import IsNotReadOnly, IsNotViewer, IsLocked
-from phoenix.server.api.context import Context
-from phoenix.server.api.exceptions import BadRequest, NotFound
-from phoenix.server.api.types.node import from_global_id_with_expected_type
-from phoenix.db import models
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from phoenix.db import models
 from phoenix.optimizer import MetricConfig, OptimizationRequest
 from phoenix.optimizer.models import DatasetExample, PlaygroundDataset
 from phoenix.optimizer.optimization_service import service as optimizer_service
-import litellm
+from phoenix.server.api.auth import IsLocked, IsNotReadOnly, IsNotViewer
+from phoenix.server.api.context import Context
+from phoenix.server.api.exceptions import BadRequest, NotFound
+from phoenix.server.api.helpers.playground_clients import PlaygroundClientCredential
+from phoenix.server.api.helpers.playground_registry import PLAYGROUND_CLIENT_REGISTRY
+from phoenix.server.api.input_types.GenerativeCredentialInput import (
+    GenerativeCredentialInput,
+)
+from phoenix.server.api.input_types.GenerativeModelInput import GenerativeModelInput
+from phoenix.server.api.input_types.InvocationParameters import (
+    InvocationParameterInput,
+)
+from phoenix.server.api.types.node import from_global_id_with_expected_type
 
 
 async def _resolve_dataset_examples(session: AsyncSession, dataset_db_id: int) -> PlaygroundDataset:
@@ -84,8 +94,10 @@ class OptimizePlaygroundPromptInput:
     algorithm: str
     prompt_messages: JSONScalarType
     tools: Optional[JSONScalarType] = None
-    model: str
-    model_kwargs: Optional[JSONScalarType] = None
+    model: GenerativeModelInput
+    invocation_parameters: list[InvocationParameterInput] = strawberry.field(
+        default_factory=list
+    )
     metric_name: str = "exact_match"
     contains_keywords: Optional[list[str]] = None
     llm_judge_prompt: Optional[str] = None
@@ -95,10 +107,19 @@ class OptimizePlaygroundPromptInput:
     min_examples: Optional[int] = None  # few-shot only
     max_examples_fs: Optional[int] = None  # few-shot only
     parameter_space: Optional[JSONScalarType] = None  # parameter optimizer
+    credentials: Optional[list[GenerativeCredentialInput]] = strawberry.field(
+        default_factory=list
+    )
 
 
 @strawberry.type
 class OptimizePlaygroundPromptPayload:
+    job_id: str
+    status: str
+
+
+@strawberry.type
+class CancelPlaygroundPromptPayload:
     job_id: str
     status: str
 
@@ -140,6 +161,27 @@ class OptimizerMutationMixin:
         async with info.context.db() as session:
             dataset = await _resolve_dataset_examples(session, dataset_db_id)
 
+        # Build Playground LLM client (reuse Playground credentials/params)
+        llm_client_class = PLAYGROUND_CLIENT_REGISTRY.get_client(
+            input.model.provider_key, input.model.name
+        )
+        if llm_client_class is None:
+            raise BadRequest(f"Unknown LLM provider: '{input.model.provider_key.value}'")
+        credentials = [
+            PlaygroundClientCredential(env_var_name=cred.env_var_name, value=cred.value)
+            for cred in (input.credentials or [])
+        ]
+        try:
+            llm_client = llm_client_class(model=input.model, credentials=credentials)
+            invocation_parameters = llm_client.construct_invocation_parameters(
+                input.invocation_parameters or []
+            )
+        except Exception as exc:  # pragma: no cover - guarded by UI/client validation
+            raise BadRequest(
+                f"Failed to initialize LLM client {input.model.provider_key.value} "
+                f"{input.model.name}: {exc}"
+            ) from exc
+
         metric_cfg = MetricConfig(
             name=metric_name,
             contains_keywords=input.contains_keywords,
@@ -151,43 +193,58 @@ class OptimizerMutationMixin:
         if metric_name == "llm_judge":
             if not input.llm_judge_prompt:
                 raise BadRequest("llm_judge_prompt is required when metric_name is llm_judge")
-            judge_model = input.llm_judge_model or input.model
 
             def _judge_fn(dataset_item: dict[str, Any], llm_output: Any) -> float:
                 messages = [
-                    {"role": "system", "content": input.llm_judge_prompt},
-                    {
-                        "role": "user",
-                        "content": (
+                    (
+                        "system",
+                        input.llm_judge_prompt or "",
+                        None,
+                        None,
+                    ),
+                    (
+                        "user",
+                        (
                             "Dataset item:\n"
                             f"{dataset_item}\n\nModel output:\n{llm_output}\n\n"
                             "Return a numeric score between 0 and 1."
                         ),
-                    },
+                        None,
+                        None,
+                    ),
                 ]
                 try:
-                    resp = litellm.completion(
-                        model=judge_model,
-                        messages=messages,  # type: ignore[arg-type]
-                        temperature=0,
-                    )
-                    text = (
-                        resp.get("choices", [{}])[0]
-                        .get("message", {})
-                        .get("content", "")
-                        .strip()
-                    )
-                    return float(text)
+                    text_parts: list[str] = []
+                    async def _run() -> None:
+                        async for chunk in llm_client.chat_completion_create(
+                            messages=messages,
+                            tools=[],
+                            **invocation_parameters,
+                        ):
+                            content = getattr(chunk, "content", None)
+                            if content:
+                                text_parts.append(str(content))
+
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        asyncio.run(_run())
+                    else:
+                        loop.run_until_complete(_run())
+                    if not text_parts:
+                        return 0.0
+                    return float(text_parts[-1].strip())
                 except Exception:
                     return 0.0
+
             judge_fn = _judge_fn
 
         request = OptimizationRequest(
             algorithm=algorithm,  # type: ignore[arg-type]
             prompt_messages=input.prompt_messages,
             tools=input.tools or [],
-            model=input.model,
-            model_kwargs=input.model_kwargs or {},
+            model=input.model.name,
+            model_kwargs={},
             dataset=dataset,
             metric=metric_cfg,
             max_trials=input.max_trials,
@@ -196,7 +253,21 @@ class OptimizerMutationMixin:
             parameter_space=input.parameter_space,
             min_examples=input.min_examples,
             max_examples_fs=input.max_examples_fs,
+            invocation_parameters=invocation_parameters,
+            llm_client=llm_client,
         )
 
         job = optimizer_service.submit_job(request, run_async=True)
         return OptimizePlaygroundPromptPayload(job_id=job.id, status=job.status)
+
+    @strawberry.mutation(permission_classes=[IsNotReadOnly, IsNotViewer, IsLocked])  # type: ignore[misc]
+    async def cancel_playground_optimization_job(
+        self, info: Info[Context, None], id: strawberry.ID
+    ) -> CancelPlaygroundPromptPayload:
+        job_id = str(id)
+        ok = optimizer_service.cancel_job(job_id)
+        if not ok:
+            raise NotFound(f"Job {job_id} not found")
+        job = optimizer_service.get_job(job_id)
+        status = job.status if job else "canceled"
+        return CancelPlaygroundPromptPayload(job_id=job_id, status=status)
