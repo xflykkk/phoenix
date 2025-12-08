@@ -92,4 +92,3 @@ helm/charts/*.tgz
 # mypy
 .mypy_cache
 
-/opik_optimizer
