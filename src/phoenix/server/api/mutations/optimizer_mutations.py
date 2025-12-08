@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 import asyncio
+import os
 import litellm
 import strawberry
 from strawberry.scalars import JSON as JSONScalarType
@@ -167,9 +168,27 @@ class OptimizerMutationMixin:
         )
         if llm_client_class is None:
             raise BadRequest(f"Unknown LLM provider: '{input.model.provider_key.value}'")
+
+        # Fill missing credentials with environment defaults when appropriate.
+        credential_inputs: list[GenerativeCredentialInput] = list(input.credentials or [])
+        def _insert_or_replace(name: str, value: str | None) -> None:
+            if not value:
+                return
+            for cred in credential_inputs:
+                if cred.env_var_name == name:
+                    cred.value = value
+                    return
+            credential_inputs.append(GenerativeCredentialInput(env_var_name=name, value=value))
+
+        if input.model.provider_key.name == "OPENAI":
+            _insert_or_replace("OPENAI_API_KEY", os.getenv("OPENAI_API_KEY"))
+            if not getattr(input.model, "base_url", None) and os.getenv("OPENAI_BASE_URL"):
+                input.model.base_url = os.getenv("OPENAI_BASE_URL")
+
         credentials = [
             PlaygroundClientCredential(env_var_name=cred.env_var_name, value=cred.value)
-            for cred in (input.credentials or [])
+            for cred in credential_inputs
+            if cred.value
         ]
         try:
             llm_client = llm_client_class(model=input.model, credentials=credentials)
