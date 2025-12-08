@@ -37,7 +37,7 @@ import { PlaygroundCredentialsDropdown } from "./PlaygroundCredentialsDropdown";
 import { PlaygroundDatasetSection } from "./PlaygroundDatasetSection";
 import { PlaygroundDatasetSelect } from "./PlaygroundDatasetSelect";
 import { PlaygroundInput } from "./PlaygroundInput";
-import { PlaygroundOptimizerPanel } from "./PlaygroundOptimizerPanel";
+import { PlaygroundOptimizerButton } from "./PlaygroundOptimizerButton";
 import { PlaygroundOutput } from "./PlaygroundOutput";
 import { PlaygroundRunButton } from "./PlaygroundRunButton";
 import { PlaygroundTemplate } from "./PlaygroundTemplate";
@@ -264,6 +264,7 @@ function PlaygroundContent() {
                   <StopPropagation>
                     <Flex direction="row" gap="size-100" alignItems="center">
                       <TemplateFormatRadioGroup size="S" />
+                      <PlaygroundOptimizerButton />
                       <AddPromptButton />
                     </Flex>
                   </StopPropagation>
@@ -293,13 +294,7 @@ function PlaygroundContent() {
         <Panel>
           {isDatasetMode ? (
             <Suspense fallback={<Loading />}>
-              <div>
-                <PlaygroundDatasetSection
-                  datasetId={datasetId}
-                  splitIds={splitIds}
-                />
-                <PlaygroundOptimizerPanel />
-              </div>
+              <PlaygroundDatasetSection datasetId={datasetId} splitIds={splitIds} />
             </Suspense>
           ) : (
             <div css={playgroundInputOutputPanelContentCSS}>
